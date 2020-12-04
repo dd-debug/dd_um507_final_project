@@ -1,0 +1,4 @@
+final_project_db.sqlite
+__pycache__
+secrets.py
+cache.json
