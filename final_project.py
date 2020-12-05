@@ -14,6 +14,21 @@ CACHE_DICT = {}
 
 
 def construct_unique_key(baseurl, params):
+    ''' constructs a key that is guaranteed to uniquely and
+    repeatably identify an API request by its baseurl and params
+
+    Parameters
+    ----------
+    baseurl: string
+        The URL for the API endpoint
+    params: dict
+        A dictionary of param:value pairs
+
+    Returns
+    -------
+    string
+        the unique key as a string
+    '''
     connector = "_"
     params_list = []
     for e in params:
@@ -24,11 +39,43 @@ def construct_unique_key(baseurl, params):
 
 
 def make_api_request(baseurl, params):
+    '''Make a request to the Web API using the baseurl and params
+
+    Parameters
+    ----------
+    baseurl: string
+        The URL for the API endpoint
+    params: dictionary
+        A dictionary of param:value pairs
+
+    Returns
+    -------
+    dict
+        the data returned from making the request in the form of
+        a dictionary
+    '''
     response = requests.get(baseurl, headers=headers, params=params)
     return response.json()
 
 
 def make_api_request_with_cache(baseurl, params):
+    '''Check the cache for a saved result for this baseurl+params:values
+    combo. If the result is found, return it. Otherwise send a new
+    request, save it, then return it.
+
+    Parameters
+    ----------
+    baseurl: string
+        The URL for the API endpoint
+    params: dict
+        The parameters to search for
+
+    Returns
+    -------
+    dict
+        the results of the query as a dictionary loaded from cache
+        JSON
+    '''
     key_str = construct_unique_key(baseurl, params)
     if key_str in CACHE_DICT:
         print("Using Cache")
@@ -41,6 +88,20 @@ def make_api_request_with_cache(baseurl, params):
 
 
 def get_yelp_bussiness_search(city_name, term="coffee"):
+    ''' search for cafes bussiness information in a city
+
+    Parameters
+    ----------
+    city_name: string
+        name of a city
+    term: string
+        term to search
+
+    Returns
+    -------
+    dict
+        query information dict
+    '''
     yelp_url = "https://api.yelp.com/v3/businesses/search"
     params = {"location": city_name,
               "term": term,
@@ -50,6 +111,13 @@ def get_yelp_bussiness_search(city_name, term="coffee"):
 
 
 def scrape_state_url():
+    ''' scrape states and cities' url from the url. (crawling)
+
+    Returns
+    -------
+    string
+        url of the states and cities
+    '''
     scrap_url = "https://www.britannica.com/topic/list-of-cities-and-towns-in-the-United-States-2023068/additional-info"
     response_text = make_url_request_using_cache(scrap_url, CACHE_DICT)
     soup = BeautifulSoup(response_text, 'html.parser')
@@ -58,6 +126,13 @@ def scrape_state_url():
 
 
 def build_state_cities_dict():
+    ''' Make a dictionary that maps state name to cities name
+
+    Returns
+    -------
+    dict
+        key is a state name and value is the cities names
+    '''
     state_url = scrape_state_url()
     response_text = make_url_request_using_cache(state_url, CACHE_DICT)
     soup = BeautifulSoup(response_text, 'html.parser')
@@ -83,6 +158,21 @@ def build_state_cities_dict():
 
 
 def make_url_request_using_cache(url, cache):
+    '''Check the cache for a saved result for this url. If the result is found,
+     return it. Otherwise send a new request, save it, then return it.
+
+    Parameters
+    ----------
+    url: string
+        The URL for the html
+    cache: dict
+        The cache with saved data
+
+    Returns
+    -------
+    string
+        the results of the query as a dictionary loaded from cache
+    '''
     if url in list(cache.keys()):  # the url is our unique key
         print("Using Cache")
         return cache[url]
@@ -96,6 +186,14 @@ def make_url_request_using_cache(url, cache):
 
 
 def load_cache():
+    ''' Opens the cache file if it exists and loads the JSON into
+    the CACHE_DICT dictionary.
+    if the cache file doesn't exist, creates a new cache dictionary
+
+    Returns
+    -------
+    The opened cache: dict
+    '''
     try:
         cache_file = open(CACHE_FILE_NAME, 'r')
         cache_file_contents = cache_file.read()
@@ -107,6 +205,14 @@ def load_cache():
 
 
 def save_cache(cache):
+    ''' Saves the current state of the cache to disk
+
+    Parameters
+    ----------
+    cache: dict
+        The dictionary to save
+
+    '''
     cache_file = open(CACHE_FILE_NAME, 'w')
     contents_to_write = json.dumps(cache)
     cache_file.write(contents_to_write)
@@ -114,6 +220,13 @@ def save_cache(cache):
 
 
 def save_city_table(states_and_cities):
+    ''' Save cities into database
+
+    Parameters
+    ----------
+    states_and_cities: dict
+        The dict of states, the key is state's name, the values are selected cities
+    '''
     try:
         create_city_table = '''
             CREATE TABLE "Cities" (
@@ -135,6 +248,40 @@ def save_city_table(states_and_cities):
 
 
 class Business():
+    '''a business
+
+    Instance Attributes
+    -------------------
+    city: string
+        the city the business in
+
+    name: string
+        the name of the business
+
+    address: string
+        address of the business
+
+    lat: int
+        lattitude of the business
+
+    lon: int
+        longitude of the business
+
+    zipcode: int
+        the zip-code of the business
+
+    price: string
+        price level of the business
+
+    image_url: string
+        url of image of the business
+
+    rating: float
+        rating of the business
+
+    review_count: int
+        review number of the business
+    '''
     def __init__(self, name=None, city=None, address=None,
                  lat=None, lon=None, zipcode=None, price=None,
                  image_url=None, rating=None, review_count=None):
@@ -148,13 +295,16 @@ class Business():
         self.image_url = image_url
         self.rating = rating
         self.review_count = review_count
-        self.save_business_table()
+        self.save_business_table() #automatically save the business in table
 
     def info(self):
+        '''return the business information'''
         return self.name + "(%s,%s)" % (
         self.rating, self.price) + ": " + self.address + ", " + self.city + ", " + self.zipcode
 
     def save_business_table(self):
+        ''' Save the business into database
+        '''
         conn = sqlite3.connect("final_project_db.sqlite")
         cur = conn.cursor()
         query = '''SELECT Id FROM Cities WHERE Cities.City= "%s"''' % self.city
@@ -192,6 +342,20 @@ class Business():
 
 
 def try_buss(dic, key):
+    ''' if dic has key, return dic[key], else return "".
+
+    Parameters
+    ----------
+    dic: string
+        a city name
+    yelp_business_dict: dict
+        businesses dict from api query
+
+    Returns
+    -------
+    list
+        list of Businesses objects
+    '''
     try:
         return dic[key]
     except:
@@ -199,6 +363,20 @@ def try_buss(dic, key):
 
 
 def build_buss_objs_from_dict(user_city, yelp_business_dict):
+    ''' build Business objects from a list of api businesses information
+
+    Parameters
+    ----------
+    user_city: string
+        a city name
+    yelp_business_dict: dict
+        businesses dict from api query
+
+    Returns
+    -------
+    list
+        list of Businesses objects
+    '''
     buss_objs = []
     for bu in yelp_business_dict["businesses"]:
         if user_city.lower() == try_buss(try_buss(bu, "location"), "city").lower():
@@ -218,8 +396,20 @@ def build_buss_objs_from_dict(user_city, yelp_business_dict):
 
 
 def get_busi_db_info(props, params=None):
-    '''props list
-    params dict'''
+    ''' get business information from database
+
+    Parameters
+    ----------
+    props: list
+        a list of property strings to query, e.g. ["rating"]
+    params: dict
+        parameters pass into database query, e.g. {"city":"Ann Arbor"}
+
+    Returns
+    -------
+    list
+        Business property information that meets the parameters
+    '''
     conn = sqlite3.connect("final_project_db.sqlite")
     cur = conn.cursor()
     real_props = ""
@@ -241,6 +431,20 @@ def get_busi_db_info(props, params=None):
 
 
 def get_aver_info_db(props_str, params=None):
+    ''' give the average info of cafes of a city
+
+    Parameters
+    ----------
+    props_str: string
+        property string to calculate info, e.g. "rating"
+    params: dict
+        parameters pass into database query, e.g. {"city":"Ann Arbor"}
+
+    Returns
+    -------
+    string
+        average rating
+    '''
     result = get_busi_db_info([props_str], params=params)
     result = [e[0] for e in result]
     aver_info = sum(result) / len(result)
@@ -253,6 +457,19 @@ def get_aver_info_db(props_str, params=None):
 
 
 def get_best_busi_based_on_rating_review(params=None):
+    ''' give the best cafe of a city based on highest rating,
+    then highest review numbers
+
+    Parameters
+    ----------
+    params: dict
+        parameters pass into database query, e.g. {"city":"Ann Arbor"}
+
+    Returns
+    -------
+    string
+        name and address of best cafe.
+    '''
     result = get_busi_db_info(["rating", "review_number",
                                "Name", "City", "Address"], params=params)
     result = sorted(result, key=lambda x: (x[0], x[1]), reverse=True)
@@ -266,6 +483,20 @@ def get_best_busi_based_on_rating_review(params=None):
 
 
 def input_state_name(states_and_cities):
+    ''' interactive: let user input a choice from "exit" or valid name of a state.
+    When get a invalid input, input operation will be required until get a valid one.
+    When get "exit", the program exits.
+
+    Parameters
+    ----------
+    states_and_cities: dict
+        The dict of states, the key is state's name, the values are selected cities
+
+    Returns
+    -------
+    string
+        a state's name
+    '''
     states = list(states_and_cities.keys())
     while True:
         state_name = input('''Enter a state name (e.g. Michigan, michigan) or "exit": ''')
@@ -280,6 +511,18 @@ def input_state_name(states_and_cities):
 
 
 def input_city_number(cities):
+    ''' interactive: let user input a choice from "exit" or valid number of cities number.
+    When get a invalid input, input operation will be required until get a valid one.
+
+    Parameters
+    -------
+    cities: list
+
+    Returns
+    -------
+    int
+        a valid number of cities
+    '''
     cities_numbers = list(range(1, len(cities) + 1))
     cities_numbers = [str(i) for i in cities_numbers]
     while True:
@@ -296,6 +539,14 @@ def input_city_number(cities):
 
 
 def input_user_choice():
+    ''' interactive: let user input a choice from "exit" or valid number of a choice.
+    When get a invalid input, input operation will be required until get a valid one.
+
+    Returns
+    -------
+    int
+        a valid number of user choice
+    '''
     print("-" * len("Data processing or visualization"))
     print("Data processing or visualization")
     print("-" * len("Data processing or visualization"))
@@ -320,6 +571,13 @@ def input_user_choice():
 
 
 def display_cities(cities):
+    ''' display the list of cities of a state
+
+    Parameters
+    ----------
+    cities: list
+        cities of a state
+    '''
     print("-" * len("Major Cities in this State."))
     print("Major Cities in this State.")
     print("-" * len("Major Cities in this State."))
@@ -328,6 +586,13 @@ def display_cities(cities):
 
 
 def display_businesses(yelp_buss_objs):
+    ''' display the list of Bussiness objects
+
+    Parameters
+    ----------
+    cities: list
+        a list of Businesses objects
+    '''
     print("-" * len("Major Cafes in this city."))
     print("Major Cafes in this city.")
     print("-" * len("Major Cafes in this city."))
@@ -336,6 +601,18 @@ def display_businesses(yelp_buss_objs):
 
 
 def map_businesses(user_city):
+    ''' show cafes of a city in map
+
+    Parameters
+    ----------
+    user_city: str
+        a city name
+
+    Return
+    ----------
+    fig: plotly figure object
+        a plotly figure
+    '''
     text_list = []
     lat_list = []
     lon_list = []
@@ -382,12 +659,31 @@ def map_businesses(user_city):
 
 
 def display_print(text):
+    ''' stress the text with symbol *
+
+    Parameters
+    ----------
+    text: string
+        a string to print
+    '''
     print("*" * len(text))
     print(text)
     print("*" * len(text))
 
 
 def kde_rating(user_city):
+    ''' show kde distribution of ratings
+
+    Parameters
+    ----------
+    user_city: str
+        a city name
+
+    Return
+    ----------
+    fig: plotly figure object
+        a plotly figure
+    '''
     text_list = []
     ra_list = []
     for bu in get_busi_db_info(["Name", "City", "Address", "rating"], {"City": user_city}):
@@ -403,6 +699,18 @@ def kde_rating(user_city):
     return fig
 
 def review_rating_scatter(user_city):
+    ''' show scatter plot, rating versus to review numbers
+
+    Parameters
+    ----------
+    user_city: str
+        a city name
+
+    Return
+    ----------
+    fig: plotly figure object
+        a plotly figure
+    '''
     text_list = []
     ra_list = []
     re_list = []
