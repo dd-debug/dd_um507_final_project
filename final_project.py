@@ -3,9 +3,11 @@ import json
 import sqlite3
 from bs4 import BeautifulSoup
 import secrets
+import plotly.graph_objs as go
+import plotly.figure_factory as ff
 
 yelp_api_key = secrets.API_KEY
-
+mapbox_token = secrets.MAPBOX_TOKEN
 headers = {"Authorization": "Bearer " + yelp_api_key}
 CACHE_FILE_NAME = 'cache.json'
 CACHE_DICT = {}
@@ -37,7 +39,8 @@ def make_api_request_with_cache(baseurl, params):
         save_cache(CACHE_DICT)
         return CACHE_DICT[key_str]
 
-def get_yelp_bussiness_search(city_name, term = "coffee"):
+
+def get_yelp_bussiness_search(city_name, term="coffee"):
     yelp_url = "https://api.yelp.com/v3/businesses/search"
     params = {"location": city_name,
               "term": term,
@@ -91,6 +94,7 @@ def make_url_request_using_cache(url, cache):
         save_cache(cache)
         return cache[url]  # in both cases, we return cache[url]
 
+
 def load_cache():
     try:
         cache_file = open(CACHE_FILE_NAME, 'r')
@@ -129,6 +133,7 @@ def save_city_table(states_and_cities):
     except:
         return None
 
+
 class Business():
     def __init__(self, name=None, city=None, address=None,
                  lat=None, lon=None, zipcode=None, price=None,
@@ -146,7 +151,8 @@ class Business():
         self.save_business_table()
 
     def info(self):
-        return self.name + "(%s,%s)" % (self.rating, self.price) + ": " + self.address + ", " + self.city + ", " + self.zipcode
+        return self.name + "(%s,%s)" % (
+        self.rating, self.price) + ": " + self.address + ", " + self.city + ", " + self.zipcode
 
     def save_business_table(self):
         conn = sqlite3.connect("final_project_db.sqlite")
@@ -155,9 +161,9 @@ class Business():
         result = cur.execute(query).fetchall()
         conn.close()
         if len(result) == 0:
-            cityId=""
+            cityId = ""
         else:
-            cityId=result[0][0]
+            cityId = result[0][0]
         create_business_table = '''
                 CREATE TABLE IF NOT EXISTS "Businesses" (
                     "Id"        INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
@@ -178,17 +184,19 @@ class Business():
         cur = conn.cursor()
         cur.execute(create_business_table)
         add_business = "INSERT INTO Businesses VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        info_list = [self.name, self.city, cityId, self.address+", "+self.zipcode,
+        info_list = [self.name, self.city, cityId, self.address + ", " + self.zipcode,
                      self.lat, self.lon, self.price, self.image_url,
                      self.rating, self.review_count]
         cur.execute(add_business, info_list)
         conn.commit()
 
-def try_buss(dic,key):
+
+def try_buss(dic, key):
     try:
         return dic[key]
     except:
         return ""
+
 
 def build_buss_objs_from_dict(user_city, yelp_business_dict):
     buss_objs = []
@@ -209,14 +217,14 @@ def build_buss_objs_from_dict(user_city, yelp_business_dict):
     return buss_objs
 
 
-def get_busi_db_info(props,params=None):
+def get_busi_db_info(props, params=None):
     '''props list
     params dict'''
     conn = sqlite3.connect("final_project_db.sqlite")
     cur = conn.cursor()
     real_props = ""
     for i in range(len(props)):
-        real_props += "b.{}".format(props[i])+", "
+        real_props += "b.{}".format(props[i]) + ", "
     real_props = real_props[:-2]
     command = '''SELECT {} FROM Businesses as b'''.format(real_props)
     if params != None:
@@ -231,26 +239,28 @@ def get_busi_db_info(props,params=None):
     conn.close()
     return result
 
-def get_aver_info_db(props_str,params=None):
-    result = get_busi_db_info([props_str],params=params)
+
+def get_aver_info_db(props_str, params=None):
+    result = get_busi_db_info([props_str], params=params)
     result = [e[0] for e in result]
-    aver_info = sum(result)/len(result)
-    res = "*"* len("Average %s of the city is %s" % (props_str, aver_info))
+    aver_info = sum(result) / len(result)
+    res = "*" * len("Average %s of the city is %s" % (props_str, aver_info))
     res += "\n"
     res += "Average %s of %s city is %s" % (props_str, params["City"], aver_info)
     res += "\n"
     res += "*" * len("Average %s of the city is %s" % (props_str, aver_info))
     return res
 
+
 def get_best_busi_based_on_rating_review(params=None):
-    result = get_busi_db_info(["rating","review_number",
-                               "Name","City","Address"], params=params)
+    result = get_busi_db_info(["rating", "review_number",
+                               "Name", "City", "Address"], params=params)
     result = sorted(result, key=lambda x: (x[0], x[1]), reverse=True)
-    result_str = "*"*40 + "\n"
+    result_str = "*" * 40 + "\n"
     result_str += "The best coffee we recommend: \n" \
-                 "{}: {}, \n" \
-                 "rating: {}, review number: {} " \
-                 "".format(result[0][2], result[0][3]+", "+result[0][4], result[0][0], result[0][1])
+                  "{}: {}, \n" \
+                  "rating: {}, review number: {} " \
+                  "".format(result[0][2], result[0][3] + ", " + result[0][4], result[0][0], result[0][1])
     result_str += "\n" + "*" * 40
     return result_str
 
@@ -270,10 +280,11 @@ def input_state_name(states_and_cities):
 
 
 def input_city_number(cities):
-    cities_numbers = list(range(1,len(cities)+1))
+    cities_numbers = list(range(1, len(cities) + 1))
     cities_numbers = [str(i) for i in cities_numbers]
     while True:
-        num = input('''To see different Cafes, please enter a city number from [%s, %s] or "exit": ''' % (1, len(cities)))
+        num = input(
+            '''To see different Cafes, please enter a city number from [%s, %s] or "exit": ''' % (1, len(cities)))
         if num.lower() == "exit":
             exit()
         elif num not in cities_numbers:
@@ -281,7 +292,8 @@ def input_city_number(cities):
             print()
         else:
             break
-    return int(num)-1
+    return int(num) - 1
+
 
 def input_user_choice():
     print("-" * len("Data processing or visualization"))
@@ -289,9 +301,11 @@ def input_user_choice():
     print("-" * len("Data processing or visualization"))
     print("1. Average rating of the cafes we queried.")
     print("2. The best cafe we recommend.")
-    print("3. Data visualization.")
-    print("4. Choose a new city.")
-    right_choice = list(range(1,5))
+    print("3. Cafes businesses map in this city.")
+    print("4. Kernel density distribution of rating of cafes in this city.")
+    print("5. Scatter plot of rating and review number of cafes in this city.")
+    print("6. Choose a new city.")
+    right_choice = list(range(1, 7))
     right_choice = [str(i) for i in right_choice]
     while True:
         num = input("Enter a choice to process/visualize data or 'exit':")
@@ -304,22 +318,120 @@ def input_user_choice():
             break
     return int(num)
 
+
 def display_cities(cities):
-    print("-"*len("Major Cities in this State."))
+    print("-" * len("Major Cities in this State."))
     print("Major Cities in this State.")
     print("-" * len("Major Cities in this State."))
     for i in range(len(cities)):
-        print(str(i+1)+". "+cities[i])
+        print(str(i + 1) + ". " + cities[i])
+
 
 def display_businesses(yelp_buss_objs):
-    print("-"*len("Major Cafes in this city."))
+    print("-" * len("Major Cafes in this city."))
     print("Major Cafes in this city.")
     print("-" * len("Major Cafes in this city."))
     for i in range(len(yelp_buss_objs)):
-        print(str(i+1)+". "+yelp_buss_objs[i].info())
+        print(str(i + 1) + ". " + yelp_buss_objs[i].info())
+
+
+def map_businesses(user_city):
+    text_list = []
+    lat_list = []
+    lon_list = []
+    ra_list = []
+    for bu in get_busi_db_info(["Name", "City", "Address", "Latitude", "Longitude", "rating"], {"City": user_city}):
+        text_list.append("{} ({}): {}, rating: {}".format(bu[0], bu[1], bu[2], bu[5]))
+        lat_list.append(bu[3])
+        lon_list.append(bu[4])
+        ra_list.append(bu[5])
+
+    ave_lat = sum(lat_list) / len(lat_list)
+    ave_lon = sum(lon_list) / len(lon_list)
+    fig = go.Figure(
+        go.Scattermapbox(
+            lat=lat_list,
+            lon=lon_list,
+            mode='markers',
+            marker=go.scattermapbox.Marker(size=15, color=ra_list,
+                                           opacity=0.5,
+                                           colorbar=dict(title="ratings"),
+                                           colorscale="rdylbu"),
+            text=text_list,
+        ))
+
+    layout = dict(
+        autosize=True,
+        hovermode='closest',
+        mapbox=go.layout.Mapbox(
+            accesstoken=mapbox_token,
+            bearing=0,
+            center=go.layout.mapbox.Center(lat=ave_lat,
+                                           lon=ave_lon),
+            pitch=0,
+            zoom=10),
+        plot_bgcolor="black",
+        paper_bgcolor="cornsilk",
+        width=1200,
+        height=700
+    )
+
+    fig.update_layout(layout)
+
+    return fig
+
+
+def display_print(text):
+    print("*" * len(text))
+    print(text)
+    print("*" * len(text))
+
+
+def kde_rating(user_city):
+    text_list = []
+    ra_list = []
+    for bu in get_busi_db_info(["Name", "City", "Address", "rating"], {"City": user_city}):
+        text_list.append("{} ({}): {}, rating: {}".format(bu[0], bu[1], bu[2], bu[3]))
+        ra_list.append(bu[3])
+    fig = ff.create_distplot([ra_list], ['rating'], bin_size=.2,
+                             show_hist=False, show_rug=False)
+    fig.update_xaxes(title_text="Ratings", ticks="inside")
+    fig.update_yaxes(title_text="Kernel Density", ticks="inside")
+    fig.update_layout(font=dict(size=20, family='Calibri', color='black'),
+                      template="ggplot2",
+                      title={'text': "Rating distribution"})
+    return fig
+
+def review_rating_scatter(user_city):
+    text_list = []
+    ra_list = []
+    re_list = []
+    for bu in get_busi_db_info(["Name", "City", "Address", "rating", "review_number"], {"City": user_city}):
+        text_list.append("{} ({}): {}, rating: {}".format(bu[0], bu[1], bu[2], bu[3]))
+        ra_list.append(bu[3])
+        re_list.append(bu[4])
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=ra_list,y=re_list,
+                    mode="markers",
+                    marker=dict(
+                        size=15,
+                        color = ra_list,
+                        colorbar=dict(title="ratings"),
+                        colorscale="rdylbu"),
+                    text=text_list,
+                    textposition="top center",
+                    opacity=0.8
+                    ))
+    fig.update_xaxes(title_text="Ratings", ticks="inside")
+    fig.update_yaxes(title_text="Review numbers", ticks="inside")
+    fig.update_layout(font=dict(size=20, family='Calibri', color='black'),
+                      # template="ggplot2",
+                      title={'text': "Review number and rating scatter plot"})
+    return fig
+
+
 
 if __name__ == "__main__":
-
     CACHE_DICT = load_cache()
     states_and_cities = build_state_cities_dict()
     save_city_table(states_and_cities)
@@ -336,7 +448,7 @@ if __name__ == "__main__":
         display_businesses(yelp_buss_objs)
 
         user_choice = ""
-        while user_choice != 4:
+        while user_choice != 6:
             user_choice = input_user_choice()
             params = {"City":user_city}
             if user_choice == 1:
@@ -344,4 +456,14 @@ if __name__ == "__main__":
             if user_choice == 2:
                 print(get_best_busi_based_on_rating_review(params))
             if user_choice == 3:
-                print("haha haimeixie")
+                display_print("Cafes businesses map of %s city has generated!" % user_city)
+                fig = map_businesses(user_city)
+                fig.show()
+            if user_choice == 4:
+                display_print("Kde plot of rating in %s city" % user_city)
+                fig = kde_rating(user_city)
+                fig.show()
+            if user_choice == 5:
+                display_print("Scatter plot of review number versus rating in %s city" % user_city)
+                fig = review_rating_scatter(user_city)
+                fig.show()
