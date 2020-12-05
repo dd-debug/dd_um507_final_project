@@ -561,8 +561,9 @@ def input_user_choice():
     print("3. Cafes businesses map in this city.")
     print("4. Kernel density distribution of rating of cafes in this city.")
     print("5. Scatter plot of rating and review number of cafes in this city.")
-    print("6. Choose a new city.")
-    right_choice = list(range(1, 7))
+    print("6. Plot price pie chart based on rating.")
+    print("7. Choose a new city.")
+    right_choice = list(range(1, 8))
     right_choice = [str(i) for i in right_choice]
     while True:
         num = input("Enter a choice to process/visualize data or 'exit':")
@@ -743,7 +744,103 @@ def review_rating_scatter(user_city):
                       title={'text': "Review number and rating scatter plot"})
     return fig
 
+def review_rating_scatter(user_city):
+    ''' show scatter plot, rating versus to review numbers
 
+    Parameters
+    ----------
+    user_city: str
+        a city name
+
+    Return
+    ----------
+    fig: plotly figure object
+        a plotly figure
+    '''
+    text_list = []
+    ra_list = []
+    re_list = []
+    for bu in get_busi_db_info(["Name", "City", "Address", "rating", "review_number"], {"City": user_city}):
+        text_list.append("{} ({}): {}, rating: {}".format(bu[0], bu[1], bu[2], bu[3]))
+        ra_list.append(bu[3])
+        re_list.append(bu[4])
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=ra_list,y=re_list,
+                    mode="markers",
+                    marker=dict(
+                        size=15,
+                        color = ra_list,
+                        colorbar=dict(title="ratings"),
+                        colorscale="rdylbu"),
+                    text=text_list,
+                    textposition="top center",
+                    opacity=0.8
+                    ))
+    fig.update_xaxes(title_text="Ratings", ticks="inside")
+    fig.update_yaxes(title_text="Review numbers", ticks="inside")
+    fig.update_layout(font=dict(size=20, family='Calibri', color='black'),
+                      # template="ggplot2",
+                      title={'text': "Review number and rating scatter plot"})
+    return fig
+
+def pie_price_highest_rating(user_city, rating = 5.0):
+    ''' give the price pie chart with same rating
+
+    Parameters
+    ----------
+    user_city: str
+        a city name
+    rating: float
+        a rating score of businesses
+
+    '''
+    text_list = []
+    ra_list = []
+    price_list = []
+    for bu in get_busi_db_info(["Name", "City", "Address", "rating", "price"],
+                               {"City": user_city, "rating": rating}):
+        text_list.append("{} ({}): {}, rating: {}".format(bu[0], bu[1], bu[2], bu[3]))
+        ra_list.append(bu[3])
+        price_list.append(bu[4])
+    fig = go.Figure()
+    if len(price_list) == 0:
+        display_print("Oops, no cafe has %s rating." % rating)
+        return None
+    result = {}
+    for key in price_list:
+        result[key] = result.get(key, 0) + 1
+    labels = list(result.keys())
+    num_labels = []
+    for la in labels:
+        if len(la) == 0:
+            num_labels.append("no price information")
+        else:
+            num_labels.append("level "+str(len(la)))
+    values = list(result.values())
+    fig.add_trace(go.Pie(labels=num_labels, values=values))
+    fig.show()
+
+def input_rating():
+    ''' get the input of user between 0 and 5 with error check.
+
+    Return
+    ----------
+    float
+        The user input
+    '''
+    while True:
+        try:
+            a = input("Please input a rating you are interested in [0.0,5.0], e.g. 4.5: ")
+            if a.lower() == "exit":
+                exit()
+            a = float(a)
+            if a >= 0 and a <= 5:
+                return a
+                break
+            else:
+                print("Input is not in range! Try again")
+        except:
+            print("Error happens! Try again!")
 
 if __name__ == "__main__":
     CACHE_DICT = load_cache()
@@ -762,7 +859,7 @@ if __name__ == "__main__":
         display_businesses(yelp_buss_objs)
 
         user_choice = ""
-        while user_choice != 6:
+        while user_choice != 7:
             user_choice = input_user_choice()
             params = {"City":user_city}
             if user_choice == 1:
@@ -781,3 +878,6 @@ if __name__ == "__main__":
                 display_print("Scatter plot of review number versus rating in %s city" % user_city)
                 fig = review_rating_scatter(user_city)
                 fig.show()
+            if user_choice == 6:
+                rat = input_rating()
+                pie_price_highest_rating(user_city, rating=rat)
